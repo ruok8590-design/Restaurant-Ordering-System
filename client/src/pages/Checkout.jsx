@@ -11,6 +11,8 @@ function Checkout() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  const API_URL = 'https://restaurant-ordering-system-okdr.onrender.com';
+
   const cart = (() => {
     try {
       return JSON.parse(localStorage.getItem('cart') || '[]');
@@ -29,94 +31,102 @@ function Checkout() {
     0
   );
 
-const submitOrder = async (method) => {
-  const token = localStorage.getItem('token');
+  const submitOrder = async (method) => {
+    const token = localStorage.getItem('token');
 
-  if (!token) {
-    alert('Please login first.');
-    navigate('/login');
-    return;
-  }
-
-  if (cart.length === 0) {
-    alert('Your cart is empty.');
-    navigate('/menu');
-    return;
-  }
-
-  setPlacingOrder(true);
-
-  try {
-    const response = await fetch('http://localhost:5000/api/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        deliveryAddress,
-        phoneNumber,
-        paymentMethod: method,
-        items: cart.map(item => ({
-          menu_id: item.id,
-          quantity: item.quantity,
-          price: Number(item.price)
-        }))
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      alert(data.message || 'Order placement failed.');
+    if (!token) {
+      alert('Please login first.');
+      navigate('/login');
       return;
     }
 
-    localStorage.removeItem('cart');
-
-    if (method === 'online') {
-      alert('Demo payment successful! Order ID: ' + data.orderId);
-    } else {
-      alert('Order placed successfully! Order ID: ' + data.orderId);
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      navigate('/menu');
+      return;
     }
 
-    navigate('/orders');
+    setPlacingOrder(true);
 
-  } catch (error) {
-    alert('Unable to connect to server.');
-  } finally {
-    setPlacingOrder(false);
-  }
-};
+    try {
+      const response = await fetch(`${API_URL}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          deliveryAddress,
+          phoneNumber,
+          paymentMethod: method,
+          items: cart.map(item => ({
+            menu_id: item.id,
+            quantity: item.quantity,
+            price: Number(item.price)
+          }))
+        })
+      });
 
-const handlePlaceOrder = (e) => {
-  e.preventDefault();
+      const data = await response.json();
 
-  if (!localStorage.getItem('token')) {
-    alert('Please login first.');
-    navigate('/login');
-    return;
-  }
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          alert('Your session has expired. Please login again.');
+          navigate('/login');
+          return;
+        }
 
-  if (cart.length === 0) {
-    alert('Your cart is empty.');
-    navigate('/menu');
-    return;
-  }
+        alert(data.message || 'Order placement failed.');
+        return;
+      }
 
-  if (paymentMethod === 'online') {
-    setShowPaymentModal(true);
-    return;
-  }
+      localStorage.removeItem('cart');
 
-  submitOrder('cod');
-};
+      if (method === 'online') {
+        alert('Demo payment successful! Order ID: ' + data.orderId);
+      } else {
+        alert('Order placed successfully! Order ID: ' + data.orderId);
+      }
 
-const confirmDemoPayment = () => {
-  setShowPaymentModal(false);
-  submitOrder('online');
-};
+      navigate('/orders');
 
+    } catch (error) {
+      console.error('Order Error:', error);
+      alert('Unable to connect to server.');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  const handlePlaceOrder = (e) => {
+    e.preventDefault();
+
+    if (!localStorage.getItem('token')) {
+      alert('Please login first.');
+      navigate('/login');
+      return;
+    }
+
+    if (cart.length === 0) {
+      alert('Your cart is empty.');
+      navigate('/menu');
+      return;
+    }
+
+    if (paymentMethod === 'online') {
+      setShowPaymentModal(true);
+      return;
+    }
+
+    submitOrder('cod');
+  };
+
+  const confirmDemoPayment = () => {
+    setShowPaymentModal(false);
+    submitOrder('online');
+  };
 
   return (
     <div className="checkout-page">
@@ -337,7 +347,6 @@ const confirmDemoPayment = () => {
           color: #333;
         }
 
-
         .summary-subtitle {
           color: #777;
           font-size: 14px;
@@ -471,7 +480,6 @@ const confirmDemoPayment = () => {
           </div>
         </div>
       )}
-
 
       {cart.length === 0 ? (
         <div className="empty-checkout">
